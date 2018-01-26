@@ -132,13 +132,15 @@ uint16_t TS8000::readConfig(void) {
     ts_digitalWrite(CLK_pin, LOW);
     ts_delayUs(BUS_DRV_DLY);
     }
+  ts_digitalWrite(DATA_pin, LOW);
+  ts_pinMode(DATA_pin, OUTPUT);
+  ts_delayUs(BUS_DRV_DLY);
   ts_digitalWrite(CLK_pin, HIGH);
   ts_delayUs(BUS_DRV_DLY);
-  ts_digitalWrite(CLK_pin, LOW);
+  ts_digitalWrite(DATA_pin, HIGH);
   ts_delayUs(BUS_DRV_DLY);
-  ts_delayUs(200);
-  ts_digitalWrite(CLK_pin, HIGH);
-  ts_delayUs(BUS_DRV_DLY);
+  ts_pinMode(CLK_pin, INPUT);
+  ts_pinMode(DATA_pin, INPUT);
   return readback;
   }
 
