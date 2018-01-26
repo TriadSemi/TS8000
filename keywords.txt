@@ -1,0 +1,38 @@
+#######################################
+# Syntax Coloring Map
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+TS8000	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+configDevice	KEYWORD2
+goToListen
+checkBus
+ts_delayUs
+ts_pinMode
+ts_digitalRead
+ts_digitalWrite
+writeConfig
+readConfig
+
+######################################
+# Constants (LITERAL1)
+#######################################
+CONFIG_RECOVERY
+UNKNOWN_STATE
+S3_STATE
+S2_STATE
+S1_STATE
+LISTEN_STATE
+CFG_WORD
+BUS_FAIL	LITERAL1
+VERIFY_FAIL	LITERAL1
+LISTEN_FAIL	LITERAL1
+CONFIG_PASS	LITERAL1
