@@ -12,27 +12,26 @@ TS8000	KEYWORD1
 # Methods and Functions (KEYWORD2)
 #######################################
 
-configDevice	KEYWORD2
-goToListen
-checkBus
-ts_delayUs
-ts_pinMode
-ts_digitalRead
-ts_digitalWrite
-writeConfig
-readConfig
+timer_init	KEYWORD2
+calibrateDevice	KEYWORD2
+ts_delayUs	KEYWORD2
+ts_pinMode	KEYWORD2
+ts_digitalRead	KEYWORD2
+ts_digitalWrite	KEYWORD2
+writeConfig	KEYWORD2
+readConfig	KEYWORD2
 
 ######################################
 # Constants (LITERAL1)
 #######################################
-CONFIG_RECOVERY
-UNKNOWN_STATE
-S3_STATE
-S2_STATE
-S1_STATE
-LISTEN_STATE
-CFG_WORD
-BUS_FAIL	LITERAL1
-VERIFY_FAIL	LITERAL1
-LISTEN_FAIL	LITERAL1
-CONFIG_PASS	LITERAL1
+
+IDEAL_CAL_COUNT_VAL	LITERAL1
+device1_CLK_pin	LITERAL1
+device1_DATA_pin	LITERAL1
+device1_INT_pin	LITERAL1
+BUS_DRV_DLY	LITERAL1
+BUS_CHECK_DLY	LITERAL1
+CAL	LITERAL1
+NO_CAL	LITERAL1
+CONFIG_RECOVERY	LITERAL1
+CFG_WORD	LITERAL1

@@ -1,8 +1,7 @@
 /*******************************************************************
-    Copyright (C) 2018 Triad Semiconductor
-
-    ts8000.h - Library for configuring the Triad Semiconductor TS8000 Ultrasonic
-               to Digital converter.
+    Copyright (c) 2018 Triad Semiconductor
+    ts8000.cpp - Library for calibrating and configuring the Triad
+                 Semiconductor TS8000 Ultrasonic to Digital converter.
 
     Created by: John Seibel
 *******************************************************************/
@@ -10,11 +9,21 @@
 #include "ts8000.h"
 #include <Arduino.h>
 
+volatile uint16_t calibration_count;  //global variable used to pass the timer count from the ISR
+volatile bool calibration_count_done;  //global variable used to indicate the ISR has been triggered
+uint16_t  count1;
+uint16_t  count2;
+uint16_t  mask;
+uint16_t  offset1;
+uint16_t  offset0;
+uint16_t  config_val1;
+uint16_t  config_val0;
 
-TS8000::TS8000(int device_CLK_pin, int device_DATA_pin) {
-  configured = false;
+
+TS8000::TS8000(int device_CLK_pin, int device_DATA_pin, uint16_t ideal_timer_cal_value) {
   CLK_pin = device_CLK_pin;
   DATA_pin = device_DATA_pin;
+  timer_cal_value = ideal_timer_cal_value;
   ts_digitalWrite(CLK_pin, LOW);
   ts_pinMode(CLK_pin, OUTPUT);
   ts_pinMode(DATA_pin, INPUT);
@@ -38,42 +47,77 @@ uint8_t TS8000::ts_digitalRead(int pin) {
 void TS8000::ts_digitalWrite(int pin, uint8_t write_val) {
   digitalWrite(pin, write_val);
   }
+  
 
-
-uint8_t TS8000::configDevice(uint16_t config_val) {
-  uint8_t config_success = 0x00;
+uint16_t TS8000::calibrateDevice(uint16_t config_val) {
+  uint16_t cal_return = 0x0000;
   uint16_t readback;
 
-  configured = false;
-  ts_digitalWrite(DATA_pin, LOW);
   ts_digitalWrite(CLK_pin, HIGH);
+  ts_digitalWrite(DATA_pin, LOW);
   ts_delayUs(BUS_DRV_DLY);
   ts_pinMode(DATA_pin, OUTPUT);
   ts_delayUs(BUS_DRV_DLY);
   ts_digitalWrite(DATA_pin, HIGH);
   ts_delayUs(BUS_DRV_DLY);
   ts_pinMode(DATA_pin, INPUT);
-  ts_pinMode(CLK_pin, INPUT);
 
-  if (checkBus() == S3_STATE) {
-    writeConfig(config_val);
-    readback = readConfig();
-    if (readback == config_val) {
-      configured = true;
-      if (goToListen()) config_success = CONFIG_PASS;
-      else config_success = LISTEN_FAIL;
+  mask = 0x0040;
+  config_val = (config_val & 0xFF80) | mask;  //just operate on the FILTER_TRIM bits
+  for (uint8_t i = 7; i > 0; i--) {
+    writeConfig(config_val);  //start with FILTER_TRIM = 0x40
+    readback = readConfig(CAL);
+    while(!calibration_count_done);  //wait until TC3 ISR is executed on rising edge of calibration pulse
+    count1 = calibration_count;
+    calibration_count_done = false;  //clear ISR "done" flag
+    while(!calibration_count_done);  //wait until TC3 ISR is executed on falling edge of calibration pulse
+    count2 = calibration_count;
+    if (count2 > count1) calibration_count = count2 - count1;  //check for timer counter rollover
+    else calibration_count = count2 + (0xFFFF - count1) + 0x0001;
+    //during the last 2 iterations of the loop, the difference values (offset)
+    //and config_val values corresponding to those offsets are saved in order
+    //to determine which has the smaller offset to be used as the FILTER_TRIM
+    //calibratin value
+    if (calibration_count > timer_cal_value) {
+      if (i == 2) {
+        offset1 = calibration_count - timer_cal_value;  //store offset when FILTER_TRIM last bit is 0
+        config_val1 = config_val;  //store config_val associated with offset
       }
-    else config_success = VERIFY_FAIL;
+      if (i == 1) {
+        offset0 = calibration_count - timer_cal_value;  //store offset when FILTER_TRIM last bit is 1
+        config_val0 = config_val;  //store config_val associated with offset
+      }
+      config_val = config_val ^ mask;  //flip bit in mask position on FILTER_TRIM
     }
-  else config_success = BUS_FAIL;
-  
-  return config_success;
+    else {
+      if (i == 2) {
+        offset1 = timer_cal_value - calibration_count;  //store offset when FILTER_TRIM last bit is 0
+        config_val1 = config_val;  //store config_val associated with offset
+      }
+      if (i == 1) {
+        offset0 = timer_cal_value - calibration_count;  //store offset when FILTER_TRIM last bit is 1
+        config_val0 = config_val;  //store config_val associated with offset
+        }
+      }
+    mask = mask >> 1;  //shift right to operate on next bit in FILTER_TRIM
+    config_val = config_val | mask;  //set next bit down
+    }
+  if (offset1 < offset0) config_val = config_val1;  //offset1 was smaller, so use that config_val
+  else config_val = config_val0;  //offset0 was smaller, so use that config_val
+  writeConfig(config_val);  //write final configuration word after calibration
+  readback = readConfig(NO_CAL);
+  if (readback == config_val) {  //verify configuration
+    cal_return = config_val;
+    }
+  else cal_return = 0x0000;
+  ts_delayUs(CONFIG_RECOVERY);  //delay to allow post-configuration chatter to cease
+  return cal_return;
   }
+    
 
 void TS8000::writeConfig(uint16_t config_val) {
   ts_digitalWrite(CLK_pin, HIGH);
   ts_digitalWrite(DATA_pin, HIGH);
-  ts_pinMode(CLK_pin, OUTPUT);
   ts_pinMode(DATA_pin, OUTPUT);
   ts_delayUs(BUS_DRV_DLY);
   ts_digitalWrite(DATA_pin, LOW);
@@ -100,17 +144,15 @@ void TS8000::writeConfig(uint16_t config_val) {
   ts_delayUs(BUS_DRV_DLY);
   ts_digitalWrite(DATA_pin, HIGH);
   ts_delayUs(BUS_DRV_DLY);
-  ts_pinMode(CLK_pin, INPUT);
   ts_pinMode(DATA_pin, INPUT);
   }
 
-uint16_t TS8000::readConfig(void) {
+uint16_t TS8000::readConfig(bool cal) {
   uint16_t readback;
   
   readback = 0x0000;
   ts_digitalWrite(CLK_pin, HIGH);
   ts_digitalWrite(DATA_pin, HIGH);
-  ts_pinMode(CLK_pin, OUTPUT);
   ts_pinMode(DATA_pin, OUTPUT);
   ts_delayUs(BUS_DRV_DLY);
   ts_digitalWrite(DATA_pin, LOW);
@@ -132,79 +174,23 @@ uint16_t TS8000::readConfig(void) {
     ts_digitalWrite(CLK_pin, LOW);
     ts_delayUs(BUS_DRV_DLY);
     }
-  ts_digitalWrite(DATA_pin, LOW);
-  ts_pinMode(DATA_pin, OUTPUT);
-  ts_delayUs(BUS_DRV_DLY);
-  ts_digitalWrite(CLK_pin, HIGH);
-  ts_delayUs(BUS_DRV_DLY);
-  ts_digitalWrite(DATA_pin, HIGH);
-  ts_delayUs(BUS_DRV_DLY);
-  ts_pinMode(CLK_pin, INPUT);
-  ts_pinMode(DATA_pin, INPUT);
-  return readback;
-  }
-
-//checkBus() performs a voting function where the bus is sampled 3 times
-//to find 2 identical results.  This is necessary since ultrasonic detection is
-//asynchronous and can indicate a false state.
-uint8_t TS8000::checkBus(void) {
-  uint8_t state;
-  uint8_t CLK_state;
-  uint8_t DATA_state;
-  uint8_t S0_count = 0;
-  uint8_t S1_count = 0;
-  uint8_t S2_count = 0;
-  uint8_t S3_count = 0;
-
-  for (uint8_t i=0; i<3; i++) {
-    CLK_state = ts_digitalRead(CLK_pin);
-    DATA_state = ts_digitalRead(DATA_pin);
-    if (DATA_state == HIGH) {
-      if (CLK_state == HIGH) S3_count++;
-      else S1_count++;
+    if (cal == NO_CAL) {
+      ts_digitalWrite(DATA_pin, LOW);
+      ts_pinMode(DATA_pin, OUTPUT);
+      ts_delayUs(BUS_DRV_DLY);
+      ts_digitalWrite(CLK_pin, HIGH);
+      ts_delayUs(BUS_DRV_DLY);
+      ts_digitalWrite(DATA_pin, HIGH);
+      ts_delayUs(BUS_DRV_DLY);
+      ts_digitalWrite(CLK_pin, LOW);
+      ts_delayUs(BUS_DRV_DLY);
+      ts_pinMode(DATA_pin, INPUT);
       }
     else {
-      if (CLK_state == HIGH) S2_count++;
-      else S0_count++;
+      calibration_count_done = false;  //clear ISR "done" flag
+      ts_digitalWrite(CLK_pin, HIGH);
+      ts_delayUs(BUS_DRV_DLY);
+      ts_digitalWrite(CLK_pin, LOW);
       }
-    ts_delayUs(BUS_CHECK_DLY);
-    }
-  if (S1_count >= 2) state = S1_STATE;
-  else if (S2_count >= 2) state = S2_STATE;
-  else if (S3_count >= 2) state = S3_STATE;
-  else if (S0_count >= 2) state = LISTEN_STATE;
-  else state = UNKNOWN_STATE;
-  return state;
-  }
-
-bool TS8000::goToListen(void) {
-  bool listen_success;
-  
-  if (configured == false)  listen_success = false;
-  else {
-    switch (checkBus()) {
-      case LISTEN_STATE:
-        listen_success = true;
-        break;
-      case S1_STATE:
-        listen_success = false;
-        break;
-      case S2_STATE:
-        listen_success = false;
-        break;
-      case S3_STATE:
-        ts_digitalWrite(CLK_pin, LOW);
-        ts_pinMode(CLK_pin, OUTPUT);
-        ts_delayUs(BUS_DRV_DLY);
-        ts_pinMode(CLK_pin, INPUT);
-        ts_delayUs(BUS_DRV_DLY);
-      if (checkBus() == LISTEN_STATE) listen_success = true;
-        else listen_success = false;
-        break;
-      default:
-        listen_success = false;
-        break;
-      }
-    }
-  return listen_success;
+  return readback;
   }
