@@ -44,16 +44,11 @@
 //    -------------           ------------
 //
 
-//#define IDEAL_CAL_COUNT_VAL  your_count_val    //User must replace your_count_val with their timer counter value that corresponds to the count value
-                                                 //at 75us - for a 48MHz counter clock, this value is 3600 decimal
-//#define device1_CLK_pin   your_CLK_pin   //User must replace your_CLK_pin with their pin number (compile error will occur if no number defined)
-//#define device1_DATA_pin   your_DATA_pin   //User must replace your_DATA_pin with their pin number (compile error will occur if no number defined)
-//#define device1_INT_pin   your_INT_pin   //User must replace your_INT_pin with their pin number (compile error will occur if no number defined)
-#define IDEAL_CAL_COUNT_VAL  3600  //User must replace your_count_val with their timer counter value that corresponds to the count value
-                                   //at 75us - for a 48MHz counter clock, this value is 3600 decimal
-#define device1_CLK_pin   5   //User must replace your_CLK_pin with their pin number (compile error will occur if no number defined)
-#define device1_DATA_pin  6   //User must replace your_DATA_pin with their pin number (compile error will occur if no number defined)
-#define device1_INT_pin   12   //User must replace your_INT_pin with their pin number (compile error will occur if no number defined)
+#define IDEAL_CAL_COUNT_VAL  your_count_val    //User must replace your_count_val with their timer counter value that corresponds to the count value
+                                               //at 75us - for a 48MHz counter clock, this value is 3600 decimal
+#define device1_CLK_pin      your_CLK_pin   //User must replace your_CLK_pin with their pin number (compile error will occur if no number defined)
+#define device1_DATA_pin     your_DATA_pin   //User must replace your_DATA_pin with their pin number (compile error will occur if no number defined)
+#define device1_INT_pin      your_INT_pin   //User must replace your_INT_pin with their pin number (compile error will occur if no number defined)
 
 uint16_t  user_config_word = 0x082C;  //default, uncalibrated configuration word is 0x082C, the user can modify this to include their
                                       //specific register settings in the upper 9 bits prior to executing calibrateDevice() - calibrateDevice()
