@@ -10,9 +10,7 @@
 #include <Arduino.h>
 
 volatile uint16_t calibration_count;  //global variable used to pass the timer count from the ISR
-volatile bool calibration_count_done;  //global variable used to indicate the ISR has been triggered
-uint16_t  count1;
-uint16_t  count2;
+volatile uint8_t TCC0_int_count;  //global variable used to count ISR executions
 uint16_t  mask;
 uint16_t  offset1;
 uint16_t  offset0;
@@ -47,7 +45,6 @@ uint8_t TS8000::ts_digitalRead(int pin) {
 void TS8000::ts_digitalWrite(int pin, uint8_t write_val) {
   digitalWrite(pin, write_val);
   }
-  
 
 uint16_t TS8000::calibrateDevice(uint16_t config_val) {
   uint16_t cal_return = 0x0000;
@@ -61,23 +58,19 @@ uint16_t TS8000::calibrateDevice(uint16_t config_val) {
   ts_digitalWrite(DATA_pin, HIGH);
   ts_delayUs(BUS_DRV_DLY);
   ts_pinMode(DATA_pin, INPUT);
-
   mask = 0x0040;
   config_val = (config_val & 0xFF80) | mask;  //just operate on the FILTER_TRIM bits
   for (uint8_t i = 7; i > 0; i--) {
     writeConfig(config_val);  //start with FILTER_TRIM = 0x40
     readback = readConfig(CAL);
-    while(!calibration_count_done);  //wait until TC3 ISR is executed on rising edge of calibration pulse
-    count1 = calibration_count;
-    calibration_count_done = false;  //clear ISR "done" flag
-    while(!calibration_count_done);  //wait until TC3 ISR is executed on falling edge of calibration pulse
-    count2 = calibration_count;
-    if (count2 > count1) calibration_count = count2 - count1;  //check for timer counter rollover
-    else calibration_count = count2 + (0xFFFF - count1) + 0x0001;
-    //during the last 2 iterations of the loop, the difference values (offset)
+    while(TCC0_int_count < 2);  //wait until TCC0 ISR has executed 2 times, once for
+                                //the rising edge of the calibration pulse and once
+                                //on the falling edge of the calibration pulse
+
+    //During the last 2 iterations of the loop, the difference values (offset)
     //and config_val values corresponding to those offsets are saved in order
     //to determine which has the smaller offset to be used as the FILTER_TRIM
-    //calibratin value
+    //calibratin value.
     if (calibration_count > timer_cal_value) {
       if (i == 2) {
         offset1 = calibration_count - timer_cal_value;  //store offset when FILTER_TRIM last bit is 0
@@ -113,7 +106,6 @@ uint16_t TS8000::calibrateDevice(uint16_t config_val) {
   ts_delayUs(CONFIG_RECOVERY);  //delay to allow post-configuration chatter to cease
   return cal_return;
   }
-    
 
 void TS8000::writeConfig(uint16_t config_val) {
   ts_digitalWrite(CLK_pin, HIGH);
@@ -182,12 +174,13 @@ uint16_t TS8000::readConfig(bool cal) {
       ts_delayUs(BUS_DRV_DLY);
       ts_digitalWrite(DATA_pin, HIGH);
       ts_delayUs(BUS_DRV_DLY);
+      ts_pinMode(DATA_pin, INPUT);
+      ts_delayUs(BUS_DRV_DLY);
       ts_digitalWrite(CLK_pin, LOW);
       ts_delayUs(BUS_DRV_DLY);
-      ts_pinMode(DATA_pin, INPUT);
       }
     else {
-      calibration_count_done = false;  //clear ISR "done" flag
+      TCC0_int_count = 0;  //clear ISR count
       ts_digitalWrite(CLK_pin, HIGH);
       ts_delayUs(BUS_DRV_DLY);
       ts_digitalWrite(CLK_pin, LOW);
