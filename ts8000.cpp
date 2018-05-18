@@ -10,7 +10,7 @@
 #include <Arduino.h>
 
 volatile uint16_t calibration_count;  //global variable used to pass the timer count from the ISR
-volatile uint8_t TCC0_int_count;  //global variable used to count ISR executions
+volatile uint8_t TCC1_int_count;  //global variable used to count ISR executions
 uint16_t  mask;
 uint16_t  offset1;
 uint16_t  offset0;
@@ -63,7 +63,7 @@ uint16_t TS8000::calibrateDevice(uint16_t config_val) {
   for (uint8_t i = 7; i > 0; i--) {
     writeConfig(config_val);  //start with FILTER_TRIM = 0x40
     readback = readConfig(CAL);
-    while(TCC0_int_count < 2);  //wait until TCC0 ISR has executed 2 times, once for
+    while(TCC1_int_count < 2);  //wait until TCC0 ISR has executed 2 times, once for
                                 //the rising edge of the calibration pulse and once
                                 //on the falling edge of the calibration pulse
 
@@ -180,7 +180,7 @@ uint16_t TS8000::readConfig(bool cal) {
       ts_delayUs(BUS_DRV_DLY);
       }
     else {
-      TCC0_int_count = 0;  //clear ISR count
+      TCC1_int_count = 0;  //clear ISR count
       ts_digitalWrite(CLK_pin, HIGH);
       ts_delayUs(BUS_DRV_DLY);
       ts_digitalWrite(CLK_pin, LOW);

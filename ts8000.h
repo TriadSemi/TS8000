@@ -18,7 +18,7 @@
 #define CFG_WORD        0x082C  //default configuration value (power up value)
 
 extern volatile uint16_t calibration_count;
-extern volatile uint8_t TCC0_int_count;
+extern volatile uint8_t TCC1_int_count;
 
 class TS8000 {
 
