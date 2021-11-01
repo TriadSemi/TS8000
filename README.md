@@ -48,17 +48,18 @@
     that can be implemented.  Also note that the circuit implements a TS8000 CM Module, which
     integrates a MEMS microphone to receive the 40kHz ultrasonic echo.
 
-####                            ------------
-####                            |  TS8000  |
-####    -------------           |    CM    |
-####    |  Arduino  |           |  MODULE  |
-####    |           |           |          |
-####    |       CLK |<--------->| CLK      |            Gate
-####    |      DATA |<--------->| DATA     |           Driver               Piezo
-####    |           |     |     |          |        ------------         Transmitter
-####    |       INT |<-----     ------------        | MCP1402T |         -----------
-####    |           |                               |          |         | MA40S4S |
-####    |       D13 |------------------------------>| IN   OUT |-------->|         |
-####    -------------    40kHz Pulse Outout         ------------         -----------
-
+```
+                            ------------
+                            |  TS8000  |
+    -------------           |    CM    |
+    |  Arduino  |           |  MODULE  |
+    |           |           |          |
+    |       CLK |<--------->| CLK      |            Gate
+    |      DATA |<--------->| DATA     |           Driver               Piezo
+    |           |     |     |          |        ------------         Transmitter
+    |       INT |<-----     ------------        | MCP1402T |         -----------
+    |           |                               |          |         | MA40S4S |
+    |       D13 |------------------------------>| IN   OUT |-------->|         |
+    -------------    40kHz Pulse Outout         ------------         -----------
+```
 
